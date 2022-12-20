@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fidesy/me-sniper/pkg/models"
+	"github.com/fidesy/me-sniper/pkg/utils"
 	"github.com/gagliardetto/solana-go"
 	rpc_ "github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/rpc/ws"
 	"github.com/portto/solana-go-sdk/client"
 	"github.com/portto/solana-go-sdk/rpc"
-	"github.com/fidesy/me-sniper/pkg/models"
-	"github.com/fidesy/me-sniper/pkg/utils"
 )
 
 type Sniper struct {
@@ -84,6 +84,8 @@ func (s *Sniper) GetTransaction(ctx context.Context, signature string) {
 
 	token := s.parseTransaction(transaction)
 	if token != nil {
+		// set floor price of the collection
+		token.FloorPrice = GetFloor(token.Symbol)
 		s.actions <- token
 	}
 }

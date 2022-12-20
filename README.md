@@ -10,12 +10,11 @@ me-sniper is an on-chain MagicEden sniper that detects all new listings on Magic
      ```
 2. Create .env file with two variables:
 
-    ---
+    ```bash
     NODE_ENDPOINT=<YOUR_SOLANA_RPC_ENDPOINT>
-
     TELEGRAM_APIKEY=<YOUR_TELEGRAM_APIKEY>
+    ```
     
-    ---
     If you don't need telegram notification then just skip second variable.
     
     You can get Solana RPC node for free at https://www.quicknode.com

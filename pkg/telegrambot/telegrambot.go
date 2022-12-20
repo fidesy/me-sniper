@@ -51,7 +51,7 @@ func (tg *TelegramBot) Start() error {
 		go func() {
 			log.Println(action)
 			// pretty string for output
-			messageText := fmt.Sprintf("#%s \n%s \n<b>%s</b> \n%d/%d \n<b>%s for %.3fsol</b> \n\nhttps://magiceden.io/item-details/%s", action.Symbol, action.Name, action.RarityStr, action.Rank, action.Supply, strings.ToUpper(action.Type), action.Price, action.MintAddress)
+			messageText := fmt.Sprintf("#%s \n%s \n<b>%s</b> \n%d/%d \n<b>%s for %.3fsol</b>\n<b>Floor: %.3fsol</b>  \n\nhttps://magiceden.io/item-details/%s", action.Symbol, action.Name, action.RarityStr, action.Rank, action.Supply, strings.ToUpper(action.Type), action.Price, action.FloorPrice, action.MintAddress)
 			for clientID := range clientsIDs {
 				msg := tgbotapi.NewMessage(clientID, messageText)
 				msg.ParseMode = "HTML"
