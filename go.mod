@@ -3,6 +3,7 @@ module github.com/fidesy/me-sniper
 go 1.19
 
 require (
+	github.com/gagliardetto/binary v0.7.1
 	github.com/gagliardetto/solana-go v1.6.0
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/joho/godotenv v1.4.0
@@ -19,7 +20,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dfuse-io/logging v0.0.0-20201110202154-26697de88c79 // indirect
 	github.com/fatih/color v1.9.0 // indirect
-	github.com/gagliardetto/binary v0.7.1 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/gorilla/rpc v1.2.0 // indirect

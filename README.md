@@ -1,6 +1,6 @@
 # me-sniper
 
-me-sniper is an on-chain MagicEden sniper that detects all new listings on MagicEden throw blockchain with telegram notifications feature.
+me-sniper is an on-chain MagicEden sniper that detects all new listings on MagicEden throw blockchain with telegram notifications feature. autobuy is possible with MagicEden API Key. 
 
 ## Installation
 
@@ -8,15 +8,21 @@ me-sniper is an on-chain MagicEden sniper that detects all new listings on Magic
     ```bash
     git clone https://github.com/fidesy/me-sniper.git
      ```
-2. Create .env file with two variables:
+2. Create .env file with the following variables:
 
     ```bash
     NODE_ENDPOINT=<YOUR_SOLANA_RPC_ENDPOINT>
     TELEGRAM_APIKEY=<YOUR_TELEGRAM_APIKEY>
+    ME_APIKEY=<YOUR_MAGIC_EDEN_APIKEY>
+    PRIVATE_KEY=<YOUR_SOLANA_WALLET_PRIVATE_KEY>
     ```
     
     If you don't need telegram notification then just skip second variable.
+
+    ME_APIKEY and PRIVATE_KEY variables are only needed if you want to automatically buy NFTs, otherwise jusk skip them.
     
+    [Add autobuy conditions here]("https://github.com/fidesy/me-sniper/blob/main/pkg/sniper/sniper.go#L99")
+
     You can get Solana RPC node for free at https://www.quicknode.com
 3. Run script
     ```bash

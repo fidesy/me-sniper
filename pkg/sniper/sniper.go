@@ -2,7 +2,10 @@ package sniper
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -87,6 +90,25 @@ func (s *Sniper) GetTransaction(ctx context.Context, signature string) {
 		// set floor price of the collection
 		token.FloorPrice = GetFloor(token.Symbol)
 		s.actions <- token
+
+		if os.Getenv("ME_APIKEY") == "" || token.Type == "buy" {
+			return
+		}
+
+		// Autobuy conditions
+		if token.Price < 0.1 {
+			privateKey := solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY"))
+			buyURL := fmt.Sprintf(`https://api-mainnet.magiceden.dev/v2/instructions/buy_now?buyer=%s&seller=%s&auctionHouseAddress=E8cU1WiRWjanGxmn96ewBgk9vPTcL6AEZ1t6F6fkgUWe&tokenMint=%s&tokenATA=%s&price=%f&sellerExpiry=-1&useV2=false&buyerCreatorRoyaltyPercent=0`,
+				privateKey.PublicKey(), token.Seller, token.MintAddress, token.TokenAddress, token.Price)
+
+			signature, err := BuyNFT(s.cli, privateKey, buyURL)
+			if err != nil {
+				log.Println("Error while buying nft:", err.Error())
+				return
+			}
+			log.Println(signature)
+			log.Println("Successfully bought item.")
+		}
 	}
 }
 
@@ -123,8 +145,8 @@ func (s Sniper) parseTransaction(transaction *client.GetTransactionResponse) *mo
 	token.BlockTimestamp = *transaction.BlockTime
 	token.MintAddress = mintAddress
 	token.Price = price
-	token.TokenAddress = transaction.Transaction.Message.Accounts[1].String()
-	token.Seller = preTokenBalances[0].Owner
+	token.TokenAddress = transaction.Transaction.Message.Accounts[2].String()
+	token.Seller = transaction.Transaction.Message.Accounts[0].String()
 
 	return token
 
