@@ -21,7 +21,7 @@ me-sniper is an on-chain MagicEden sniper that detects all new listings on Magic
 
     ME_APIKEY and PRIVATE_KEY variables are only needed if you want to automatically buy NFTs, otherwise jusk skip them.
     
-    [Add autobuy conditions here]("https://github.com/fidesy/me-sniper/blob/main/pkg/sniper/sniper.go#L99")
+    [Add autobuy conditions here](https://github.com/fidesy/me-sniper/blob/main/pkg/sniper/sniper.go#L99)
 
     You can get Solana RPC node for free at https://www.quicknode.com
 3. Run script
