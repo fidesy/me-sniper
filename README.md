@@ -26,7 +26,7 @@ me-sniper is an on-chain MagicEden sniper that detects all new listings on Magic
     You can get Solana RPC node for free at https://www.quicknode.com
 3. Run script
     ```bash
-    go run cmd/main.go
+    go run cmd/me-sniper/main.go
     ```
 4. (Optional) If you are using telegram bot, then write /start command to it.
 ## Usage

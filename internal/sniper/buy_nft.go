@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/gagliardetto/solana-go"
 	"io"
 	"net/http"
 	"os"
 
-	"github.com/fidesy/me-sniper/pkg/models"
+	"github.com/fidesy/me-sniper/internal/models"
 	bin "github.com/gagliardetto/binary"
-	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/portto/solana-go-sdk/client"
 )
 
 func GetTransactionData(url string) ([]byte, error) {
@@ -42,7 +41,7 @@ func GetTransactionData(url string) ([]byte, error) {
 	return response.TxSigned.Data, nil
 }
 
-func BuyNFT(c *client.Client, privateKey solana.PrivateKey, url string) (string, error) {
+func BuyNFT(privateKey solana.PrivateKey, url string) (string, error) {
 	txSigned, err := GetTransactionData(url)
 	if err != nil {
 		return "", err

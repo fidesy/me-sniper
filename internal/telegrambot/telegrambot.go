@@ -5,8 +5,8 @@ import (
 	"log"
 	"strings"
 
+	"github.com/fidesy/me-sniper/internal/models"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/fidesy/me-sniper/pkg/models"
 )
 
 type TelegramBot struct {
@@ -14,8 +14,8 @@ type TelegramBot struct {
 	actions chan *models.Token
 }
 
-func New(API_KEY string, actions chan *models.Token) (*TelegramBot, error) {
-	bot, err := tgbotapi.NewBotAPI(API_KEY)
+func New(APIKey string, actions chan *models.Token) (*TelegramBot, error) {
+	bot, err := tgbotapi.NewBotAPI(APIKey)
 	if err != nil {
 		return nil, err
 	}

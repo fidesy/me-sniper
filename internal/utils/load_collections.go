@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/fidesy/me-sniper/pkg/models"
+	"github.com/fidesy/me-sniper/internal/models"
 )
 
 func LoadCollections() (map[string]*models.Token, error) {

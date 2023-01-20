@@ -3,6 +3,7 @@ package sniper
 import (
 	"context"
 	"fmt"
+	"github.com/gagliardetto/solana-go"
 	"log"
 	"math/rand"
 	"os"
@@ -10,9 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fidesy/me-sniper/pkg/models"
-	"github.com/fidesy/me-sniper/pkg/utils"
-	"github.com/gagliardetto/solana-go"
+	"github.com/fidesy/me-sniper/internal/models"
+	"github.com/fidesy/me-sniper/internal/utils"
 	rpc_ "github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/rpc/ws"
 	"github.com/portto/solana-go-sdk/client"
@@ -23,18 +23,40 @@ type Sniper struct {
 	cli         *client.Client
 	actions     chan *models.Token
 	collections map[string]*models.Token
+	privateKey  solana.PrivateKey
 }
 
-func New(endpoint string, actions chan *models.Token) (*Sniper, error) {
+type Options struct {
+	Endpoint   string
+	Actions    chan *models.Token
+	PrivateKey string
+}
+
+func New(options *Options) (*Sniper, error) {
 	collections, err := utils.LoadCollections()
 	if err != nil {
 		return nil, err
 	}
 
+	cli := client.NewClient(options.Endpoint)
+	// node health check
+	if _, err = cli.GetBalance(context.Background(), MEPublicKeyStr); err != nil {
+		return nil, err
+	}
+
+	var privateKey solana.PrivateKey = nil
+	if options.PrivateKey != "" {
+		privateKey, err = solana.PrivateKeyFromBase58(options.PrivateKey)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &Sniper{
-		cli:         client.NewClient(endpoint),
-		actions:     actions,
+		cli:         cli,
+		actions:     options.Actions,
 		collections: collections,
+		privateKey:  privateKey,
 	}, nil
 }
 
@@ -44,7 +66,7 @@ var (
 )
 
 func (s *Sniper) Start() error {
-	// For websocket connection public wss will be enought
+	// For websocket connection public wss will be enough
 	client, err := ws.Connect(context.Background(), rpc_.MainNetBeta_WS)
 	if err != nil {
 		return err
@@ -91,22 +113,21 @@ func (s *Sniper) GetTransaction(ctx context.Context, signature string) {
 		token.FloorPrice = GetFloor(token.Symbol)
 		s.actions <- token
 
-		if os.Getenv("ME_APIKEY") == "" || token.Type == "buy" {
+		if token.Type == "buy" || os.Getenv("ME_APIKEY") == "" || s.privateKey == nil {
 			return
 		}
 
-		// Autobuy conditions
+		// auto buy conditions
 		if token.Price < 0.1 {
-			privateKey := solana.MustPrivateKeyFromBase58(os.Getenv("PRIVATE_KEY"))
 			buyURL := fmt.Sprintf(`https://api-mainnet.magiceden.dev/v2/instructions/buy_now?buyer=%s&seller=%s&auctionHouseAddress=E8cU1WiRWjanGxmn96ewBgk9vPTcL6AEZ1t6F6fkgUWe&tokenMint=%s&tokenATA=%s&price=%f&sellerExpiry=-1&useV2=false&buyerCreatorRoyaltyPercent=0`,
-				privateKey.PublicKey(), token.Seller, token.MintAddress, token.TokenAddress, token.Price)
+				s.privateKey.PublicKey(), token.Seller, token.MintAddress, token.TokenAddress, token.Price)
 
-			signature, err := BuyNFT(s.cli, privateKey, buyURL)
+			signature, err := BuyNFT(s.privateKey, buyURL)
 			if err != nil {
 				log.Println("Error while buying nft:", err.Error())
 				return
 			}
-			log.Println(signature)
+			log.Println("Signature -", signature)
 			log.Println("Successfully bought item.")
 		}
 	}

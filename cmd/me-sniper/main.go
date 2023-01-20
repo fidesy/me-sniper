@@ -4,10 +4,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/fidesy/me-sniper/internal/models"
+	"github.com/fidesy/me-sniper/internal/sniper"
+	"github.com/fidesy/me-sniper/internal/telegrambot"
 	"github.com/joho/godotenv"
-	"github.com/fidesy/me-sniper/pkg/models"
-	"github.com/fidesy/me-sniper/pkg/sniper"
-	"github.com/fidesy/me-sniper/pkg/telegrambot"
 )
 
 func main() {
@@ -17,27 +17,32 @@ func main() {
 	var actions = make(chan *models.Token, 5)
 
 	// create sniper instance
-	s, err := sniper.New(os.Getenv("NODE_ENDPOINT"), actions)
+	s, err := sniper.New(&sniper.Options{
+		Endpoint:   os.Getenv("NODE_ENDPOINT"),
+		Actions:    actions,
+		PrivateKey: os.Getenv("PRIVATE_KEY"),
+	})
 	checkError(err)
 
+	// run sniper concurrently
 	go func() {
 		err = s.Start()
 		checkError(err)
 	}()
 
-	TELEGRAM_APIKEY := os.Getenv("TELEGRAM_APIKEY")
-	if TELEGRAM_APIKEY != "" {
+	telegramAPIKey := os.Getenv("TELEGRAM_APIKEY")
+	if telegramAPIKey != "" {
 		// create and start telegram bot
-		tgbot, err := telegrambot.New(TELEGRAM_APIKEY, actions)
+		tgBot, err := telegrambot.New(telegramAPIKey, actions)
 		checkError(err)
 
-		err = tgbot.Start()
+		err = tgBot.Start()
 		checkError(err)
 	} else {
 		// just logs
 		for action := range actions {
 			action := action
-	
+
 			go func() {
 				log.Println(action)
 			}()

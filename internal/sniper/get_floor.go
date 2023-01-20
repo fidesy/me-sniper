@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fidesy/me-sniper/pkg/models"
+	"github.com/fidesy/me-sniper/internal/models"
 )
 
 const storageTime = time.Duration(time.Second * 30)
@@ -24,13 +24,11 @@ func GetFloor(symbol string) float64 {
 		request, _ := http.NewRequest("GET", fmt.Sprintf("https://api-mainnet.magiceden.dev/v2/collections/%s/stats", symbol), nil)
 		resp, err := cli.Do(request)
 		if err != nil {
-			// log.Error("Can't make request for floor - ", err)
 			return cache[symbol].Value
 
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != 200 {
-			// log.Error("Error making request to ME - ", resp.StatusCode)
 			return cache[symbol].Value
 		}
 
