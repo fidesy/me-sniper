@@ -2,8 +2,6 @@ package sniper
 
 import (
 	"context"
-	"fmt"
-	"github.com/gagliardetto/solana-go"
 	"log"
 	"math/rand"
 	"os"
@@ -11,12 +9,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gagliardetto/solana-go"
+
 	"github.com/fidesy/me-sniper/internal/models"
 	"github.com/fidesy/me-sniper/internal/utils"
 	rpc_ "github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/rpc/ws"
 	"github.com/portto/solana-go-sdk/client"
 	"github.com/portto/solana-go-sdk/rpc"
+)
+
+var (
+	MEPublicKeyStr = "1BWutmTvYPwDtmw9abTkS4Ssr8no61spGAvW1X6NDix"
+	MEPublicKey    = solana.MustPublicKeyFromBase58(MEPublicKeyStr)
 )
 
 type Sniper struct {
@@ -60,12 +65,7 @@ func New(options *Options) (*Sniper, error) {
 	}, nil
 }
 
-var (
-	MEPublicKeyStr = "1BWutmTvYPwDtmw9abTkS4Ssr8no61spGAvW1X6NDix"
-	MEPublicKey    = solana.MustPublicKeyFromBase58(MEPublicKeyStr)
-)
-
-func (s *Sniper) Start() error {
+func (s *Sniper) Start(ctx context.Context) error {
 	// For websocket connection public wss will be enough
 	client, err := ws.Connect(context.Background(), rpc_.MainNetBeta_WS)
 	if err != nil {
@@ -78,14 +78,19 @@ func (s *Sniper) Start() error {
 	}
 	defer sub.Unsubscribe()
 
-	for {
-		got, err := sub.Recv()
-		if err != nil {
-			return err
-		}
+	go func() {
+		for {
+			got, err := sub.Recv()
+			if err != nil {
+				log.Println(err)
+			}
 
-		go s.GetTransaction(context.Background(), got.Value.Signature.String())
-	}
+			go s.GetTransaction(ctx, got.Value.Signature.String())
+		}
+	}()
+
+	<-ctx.Done()
+	return nil
 }
 
 func (s *Sniper) GetTransaction(ctx context.Context, signature string) {
@@ -108,28 +113,27 @@ func (s *Sniper) GetTransaction(ctx context.Context, signature string) {
 	}
 
 	token := s.parseTransaction(transaction)
-	if token != nil {
-		// set floor price of the collection
-		token.FloorPrice = GetFloor(token.Symbol)
-		s.actions <- token
+	if token == nil {
+		return
+	}
 
-		if token.Type == "buy" || os.Getenv("ME_APIKEY") == "" || s.privateKey == nil {
+	// set floor price of the collection
+	token.FloorPrice = GetFloor(token.Symbol)
+	s.actions <- token
+
+	if token.Type == "buy" || os.Getenv("ME_APIKEY") == "" || s.privateKey == nil {
+		return
+	}
+
+	// auto buy conditions
+	if token.Price < 0.1 {
+		signature, err := s.BuyNFT(token)
+		if err != nil {
+			log.Println("Error while buying nft:", err.Error())
 			return
 		}
-
-		// auto buy conditions
-		if token.Price < 0.1 {
-			buyURL := fmt.Sprintf(`https://api-mainnet.magiceden.dev/v2/instructions/buy_now?buyer=%s&seller=%s&auctionHouseAddress=E8cU1WiRWjanGxmn96ewBgk9vPTcL6AEZ1t6F6fkgUWe&tokenMint=%s&tokenATA=%s&price=%f&sellerExpiry=-1&useV2=false&buyerCreatorRoyaltyPercent=0`,
-				s.privateKey.PublicKey(), token.Seller, token.MintAddress, token.TokenAddress, token.Price)
-
-			signature, err := BuyNFT(s.privateKey, buyURL)
-			if err != nil {
-				log.Println("Error while buying nft:", err.Error())
-				return
-			}
-			log.Println("Signature -", signature)
-			log.Println("Successfully bought item.")
-		}
+		log.Println("Signature -", signature)
+		log.Println("Successfully bought item.")
 	}
 }
 

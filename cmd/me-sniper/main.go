@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/fidesy/me-sniper/internal/models"
 	"github.com/fidesy/me-sniper/internal/sniper"
@@ -14,7 +17,16 @@ func main() {
 	err := godotenv.Load()
 	checkError(err)
 
-	var actions = make(chan *models.Token, 5)
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGHUP,
+		syscall.SIGQUIT,
+	)
+	defer cancel()
+
+	var actions = make(chan *models.Token)
 
 	// create sniper instance
 	s, err := sniper.New(&sniper.Options{
@@ -26,17 +38,17 @@ func main() {
 
 	// run sniper concurrently
 	go func() {
-		err = s.Start()
+		err = s.Start(ctx)
 		checkError(err)
 	}()
 
 	telegramAPIKey := os.Getenv("TELEGRAM_APIKEY")
 	if telegramAPIKey != "" {
 		// create and start telegram bot
-		tgBot, err := telegrambot.New(telegramAPIKey, actions)
+		tgBot, err := telegrambot.New(telegramAPIKey)
 		checkError(err)
 
-		err = tgBot.Start()
+		err = tgBot.Start(ctx, actions)
 		checkError(err)
 	} else {
 		// just logs

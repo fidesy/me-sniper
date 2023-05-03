@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/fidesy/me-sniper/internal/models"
@@ -14,6 +15,7 @@ const storageTime = time.Duration(time.Second * 30)
 
 var (
 	cache = make(map[string]*models.Floor)
+	mutex sync.Mutex
 	cli   = &http.Client{}
 )
 
@@ -36,6 +38,8 @@ func GetFloor(symbol string) float64 {
 		var floorResp models.FloorResponse
 		json.Unmarshal(body, &floorResp)
 
+		mutex.Lock()
+		defer mutex.Unlock()
 		cache[symbol] = &models.Floor{Value: floorResp.FloorPrice / 1e9, Time: time.Now()}
 	}
 
