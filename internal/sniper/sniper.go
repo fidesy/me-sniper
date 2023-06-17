@@ -49,7 +49,7 @@ func New(options *Options) (*Sniper, error) {
 		return nil, err
 	}
 
-	var privateKey solana.PrivateKey = nil
+	var privateKey solana.PrivateKey
 	if options.PrivateKey != "" {
 		privateKey, err = solana.PrivateKeyFromBase58(options.PrivateKey)
 		if err != nil {
@@ -83,6 +83,11 @@ func (s *Sniper) Start(ctx context.Context) error {
 			got, err := sub.Recv()
 			if err != nil {
 				log.Println(err)
+				return
+			}
+
+			if got == nil {
+				continue
 			}
 
 			go s.GetTransaction(ctx, got.Value.Signature.String())
@@ -137,7 +142,7 @@ func (s *Sniper) GetTransaction(ctx context.Context, signature string) {
 	}
 }
 
-func (s Sniper) parseTransaction(transaction *client.GetTransactionResponse) *models.Token {
+func (s *Sniper) parseTransaction(transaction *client.GetTransactionResponse) *models.Token {
 	var (
 		token *models.Token
 		ok    bool
