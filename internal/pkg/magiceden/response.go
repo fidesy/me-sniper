@@ -1,4 +1,15 @@
-package models
+package magiceden
+
+type BuyResponse struct {
+	Tx struct {
+		Type string `json:"type"`
+		Data []byte `json:"data"`
+	} `json:"tx"`
+	TxSigned struct {
+		Type string `json:"type"`
+		Data []byte `json:"data"`
+	} `json:"txSigned"`
+}
 
 type FloorResponse struct {
 	Symbol       string  `json:"symbol"`

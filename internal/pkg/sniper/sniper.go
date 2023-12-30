@@ -2,21 +2,21 @@ package sniper
 
 import (
 	"context"
-	"log"
-	"math/rand"
-	"os"
-	"strconv"
-	"strings"
-	"time"
-
+	"errors"
+	"fmt"
+	"github.com/fidesy/me-sniper/internal/config"
+	"github.com/fidesy/me-sniper/internal/pkg/crypto"
+	"github.com/fidesy/me-sniper/internal/pkg/models"
 	"github.com/gagliardetto/solana-go"
-
-	"github.com/fidesy/me-sniper/internal/models"
-	"github.com/fidesy/me-sniper/internal/utils"
 	rpc_ "github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/rpc/ws"
 	"github.com/portto/solana-go-sdk/client"
 	"github.com/portto/solana-go-sdk/rpc"
+	"log"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 )
 
 var (
@@ -24,57 +24,71 @@ var (
 	MEPublicKey    = solana.MustPublicKeyFromBase58(MEPublicKeyStr)
 )
 
-type Sniper struct {
-	cli         *client.Client
-	actions     chan *models.Token
-	collections map[string]*models.Token
-	privateKey  solana.PrivateKey
-}
-
-type Options struct {
-	Endpoint   string
-	Actions    chan *models.Token
-	PrivateKey string
-}
-
-func New(options *Options) (*Sniper, error) {
-	collections, err := utils.LoadCollections()
-	if err != nil {
-		return nil, err
+type (
+	Service struct {
+		tokens              map[string]*models.Token
+		solClient           *client.Client
+		meClient            MagicEdenClient
+		notificationService NotificationService
 	}
 
-	cli := client.NewClient(options.Endpoint)
+	MagicEdenClient interface {
+		GetFloor(ctx context.Context, symbol string) (float64, error)
+		Buy(ctx context.Context, token *models.Token) (string, error)
+	}
+
+	NotificationService interface {
+		SendNotification(ctx context.Context, action *models.Action)
+	}
+)
+
+type Option func(s *Service)
+
+func New(
+	meClient MagicEdenClient,
+	notificationService NotificationService,
+	options ...Option) (*Service, error) {
+	s := &Service{
+		meClient:            meClient,
+		notificationService: notificationService,
+	}
+
+	solanaEndpoint := config.Get(config.SolanaEndpoint).(string)
+	if solanaEndpoint == "" {
+		return nil, errors.New("solana endpoint config string is required")
+	}
+
+	solClient := client.NewClient(solanaEndpoint)
 	// node health check
-	if _, err = cli.GetBalance(context.Background(), MEPublicKeyStr); err != nil {
+	if _, err := solClient.GetBalance(context.Background(), MEPublicKeyStr); err != nil {
 		return nil, err
 	}
+	s.solClient = solClient
 
-	var privateKey solana.PrivateKey
-	if options.PrivateKey != "" {
-		privateKey, err = solana.PrivateKeyFromBase58(options.PrivateKey)
-		if err != nil {
-			return nil, err
-		}
+	tokens, err := models.LoadTokens()
+	if err != nil {
+		return nil, fmt.Errorf("models.LoadTokens: %w", err)
 	}
 
-	return &Sniper{
-		cli:         cli,
-		actions:     options.Actions,
-		collections: collections,
-		privateKey:  privateKey,
-	}, nil
+	s.tokens = tokens
+
+	for _, opt := range options {
+		opt(s)
+	}
+
+	return s, nil
 }
 
-func (s *Sniper) Start(ctx context.Context) error {
+func (s *Service) Run(ctx context.Context) error {
 	// For websocket connection public wss will be enough
-	client, err := ws.Connect(context.Background(), rpc_.MainNetBeta_WS)
+	wsClient, err := ws.Connect(ctx, rpc_.MainNetBeta_WS)
 	if err != nil {
-		return err
+		return fmt.Errorf("ws.Connect: %w", err)
 	}
 
-	sub, err := client.LogsSubscribeMentions(MEPublicKey, "confirmed")
+	sub, err := wsClient.LogsSubscribeMentions(MEPublicKey, "confirmed")
 	if err != nil {
-		return err
+		return fmt.Errorf("wsClient.LogsSubscribeMentions: %w", err)
 	}
 	defer sub.Unsubscribe()
 
@@ -82,7 +96,7 @@ func (s *Sniper) Start(ctx context.Context) error {
 		for {
 			got, err := sub.Recv()
 			if err != nil {
-				log.Println(err)
+				log.Printf("sub.Recv: %v", err)
 				return
 			}
 
@@ -95,18 +109,17 @@ func (s *Sniper) Start(ctx context.Context) error {
 	}()
 
 	<-ctx.Done()
+
 	return nil
 }
 
-func (s *Sniper) GetTransaction(ctx context.Context, signature string) {
+func (s *Service) GetTransaction(ctx context.Context, signature string) {
 	var (
 		transaction *client.GetTransactionResponse
 		err         error
 	)
-	// Sleep until transaction data can be obtained
-	time.Sleep(time.Millisecond*time.Duration(rand.Intn(1000)) + 500)
 	for transaction == nil {
-		transaction, err = s.cli.GetTransactionWithConfig(
+		transaction, err = s.solClient.GetTransactionWithConfig(
 			ctx,
 			signature,
 			rpc.GetTransactionConfig{Commitment: "confirmed"},
@@ -123,16 +136,23 @@ func (s *Sniper) GetTransaction(ctx context.Context, signature string) {
 	}
 
 	// set floor price of the collection
-	token.FloorPrice = GetFloor(token.Symbol)
-	s.actions <- token
+	token.FloorPrice, err = s.meClient.GetFloor(ctx, token.Symbol)
+	if err != nil {
+		log.Printf("meClient.GetFloor: %v", err)
+		return
+	}
 
-	if token.Type == "buy" || os.Getenv("ME_APIKEY") == "" || s.privateKey == nil {
+	if 1*token.FloorPrice > token.Price {
+		s.notificationService.SendNotification(ctx, &models.Action{Token: token})
+	}
+
+	if token.Type == "buy" || os.Getenv("ME_APIKEY") == "" || crypto.PrivateKey().String() == "" {
 		return
 	}
 
 	// auto buy conditions
 	if token.Price < 0.1 {
-		signature, err := s.BuyNFT(token)
+		signature, err := s.meClient.Buy(ctx, token)
 		if err != nil {
 			log.Println("Error while buying nft:", err.Error())
 			return
@@ -142,7 +162,7 @@ func (s *Sniper) GetTransaction(ctx context.Context, signature string) {
 	}
 }
 
-func (s *Sniper) parseTransaction(transaction *client.GetTransactionResponse) *models.Token {
+func (s *Service) parseTransaction(transaction *client.GetTransactionResponse) *models.Token {
 	var (
 		token *models.Token
 		ok    bool
@@ -156,7 +176,7 @@ func (s *Sniper) parseTransaction(transaction *client.GetTransactionResponse) *m
 
 	// Check if collections.json contains token
 	mintAddress := preTokenBalances[0].Mint
-	if token, ok = s.collections[mintAddress]; !ok {
+	if token, ok = s.tokens[mintAddress]; !ok {
 		return nil
 	}
 

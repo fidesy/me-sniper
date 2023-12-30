@@ -8,13 +8,13 @@ me-sniper is an on-chain MagicEden sniper that detects all new listings on Magic
     ```bash
     git clone https://github.com/fidesy/me-sniper.git
      ```
-2. Create .env file with the following variables:
+2. Fill in config file with the following variables:
 
     ```bash
-    NODE_ENDPOINT=<YOUR_SOLANA_RPC_ENDPOINT>
-    TELEGRAM_APIKEY=<YOUR_TELEGRAM_APIKEY>
-    ME_APIKEY=<YOUR_MAGIC_EDEN_APIKEY>
-    PRIVATE_KEY=<YOUR_SOLANA_WALLET_PRIVATE_KEY>
+    solana-endpoint: <YOUR_SOLANA_RPC_ENDPOINT>
+    bot-api-key: <YOUR_TELEGRAM_APIKEY>
+    me-api-key: <YOUR_MAGIC_EDEN_APIKEY>
+    private-key: <YOUR_SOLANA_WALLET_PRIVATE_KEY>
     ```
     
     If you don't need telegram notification then just skip second variable.
