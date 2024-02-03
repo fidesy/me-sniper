@@ -8,7 +8,7 @@ me-sniper is an on-chain MagicEden sniper that detects all new listings on Magic
     ```bash
     git clone https://github.com/fidesy/me-sniper.git
      ```
-2. Fill in config file with the following variables:
+2. Fill in config file (configs/values_local.yaml) with the following variables:
 
     ```bash
     solana-endpoint: <YOUR_SOLANA_RPC_ENDPOINT>

@@ -142,7 +142,7 @@ func (s *Service) GetTransaction(ctx context.Context, signature string) {
 		return
 	}
 
-	if 1*token.FloorPrice > token.Price {
+	if token.Price < 1*token.FloorPrice {
 		s.notificationService.SendNotification(ctx, &models.Action{Token: token})
 	}
 
