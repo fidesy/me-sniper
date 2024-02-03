@@ -3,26 +3,41 @@ package app
 import (
 	"context"
 	"fmt"
+
 	"github.com/fidesy/me-sniper/internal/config"
 	"github.com/fidesy/me-sniper/internal/pkg/magiceden"
+	"github.com/fidesy/me-sniper/internal/pkg/notificator"
 	"github.com/fidesy/me-sniper/internal/pkg/sniper"
 	"github.com/fidesy/me-sniper/internal/pkg/telegrambot"
 	"golang.org/x/sync/errgroup"
 )
 
 func Run(ctx context.Context) error {
-	meClient := magiceden.New(ctx)
-
-	telegramBot, err := telegrambot.New(
-		config.Get(config.BotAPIToken).(string),
+	var (
+		notificationService sniper.NotificationService
+		telegramBot         *telegrambot.Service
+		err                 error
 	)
-	if err != nil {
-		return fmt.Errorf("telegrambot.New: %w", err)
+
+	notificationService = notificator.New()
+
+	botAPIToken := config.Get(config.BotAPIToken).(string)
+	if botAPIToken != "" {
+		telegramBot, err = telegrambot.New(
+			botAPIToken,
+		)
+		if err != nil {
+			return fmt.Errorf("telegrambot.New: %w", err)
+		}
+
+		notificationService = telegramBot
 	}
+
+	meClient := magiceden.New(ctx)
 
 	sniperService, err := sniper.New(
 		meClient,
-		telegramBot,
+		notificationService,
 	)
 	if err != nil {
 		return fmt.Errorf("sniper.New: %w", err)
@@ -31,6 +46,10 @@ func Run(ctx context.Context) error {
 	errGroup, ctx := errgroup.WithContext(ctx)
 
 	errGroup.Go(func() error {
+		if telegramBot == nil {
+			return nil
+		}
+
 		if err = telegramBot.Run(ctx); err != nil {
 			return fmt.Errorf("telegramBot.Run: %w", err)
 		}
